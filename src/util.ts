@@ -40,9 +40,36 @@ function isLeTenMillion(row: cheerio.Cheerio): boolean {
 }
 
 /**
+ * 종목의 거래대금이 200억 이상인지 확인하여 boolean을 반환한다.
+ */
+function isLeTwentyBillion(row: cheerio.Cheerio): boolean {
+  const amountStr = row.children("td:nth-child(7)").text();
+  const amountInt = Number(amountStr.split(",").join(""));
+  return amountInt < 20_000;
+}
+
+/**
+ * ETF 종목인지 확인하기
+ */
+function exceptETFnETN(name: string): boolean {
+  if (
+    name.includes("선물") ||
+    name.includes("ETN") ||
+    name.includes("KODEX") ||
+    name.includes("TIGER") ||
+    name.includes("인버스") ||
+    name.includes("레버리지")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * KOSPI, KOSDAQ의 상한가 종목을 반환한다.
  */
-export function getUpperLimitList($: cheerio.Root) {
+export function parseUpperLimitList($: cheerio.Root) {
   const UpperLimitList: StockItemModel[] = [];
   const tableBody = $("#contentarea .box_type_l table tbody");
 
@@ -78,7 +105,7 @@ export function getUpperLimitList($: cheerio.Root) {
 /**
  * KOSPI의 거래량 1000만 이상의 종목을 반환한다.
  */
-export function getKospiVolumeList($: cheerio.Root) {
+export function parseKospiVolumeList($: cheerio.Root) {
   const kospiVolumeList: StockItemModel[] = [];
   const tableBody = $("#contentarea .box_type_l table tbody");
 
@@ -88,10 +115,13 @@ export function getKospiVolumeList($: cheerio.Root) {
     for (let i = 2; i < rows.length - 2; i++) {
       const row = $(rows[i]);
       if (row.children().length === 1) continue;
+      if (isLeTwentyBillion(row)) continue;
       if (isLeTenMillion(row)) break;
 
       const stockItem = row.children("td:nth-child(2)");
       const { code, name } = getStockCommonData(stockItem);
+
+      if (exceptETFnETN(name)) continue;
 
       kospiVolumeList.push({
         code,
@@ -107,7 +137,7 @@ export function getKospiVolumeList($: cheerio.Root) {
 /**
  * KOSDAQ의 거래량 1000만 이상의 종목을 반환한다.
  */
-export function getKosdaqVolumeList($: cheerio.Root) {
+export function parseKosdaqVolumeList($: cheerio.Root) {
   const kosdaqVolumeList: StockItemModel[] = [];
   const tableBody = $("#contentarea .box_type_l table tbody");
   tableBody.each((_, el) => {
@@ -116,6 +146,7 @@ export function getKosdaqVolumeList($: cheerio.Root) {
     for (let i = 2; i < rows.length - 2; i++) {
       const row = $(rows[i]);
       if (row.children().length === 1) continue;
+      if (isLeTwentyBillion(row)) continue;
       if (isLeTenMillion(row)) break;
 
       const stockItem = row.children("td:nth-child(2)");
