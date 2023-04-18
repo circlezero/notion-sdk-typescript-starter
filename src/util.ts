@@ -21,7 +21,7 @@ export function getHtmlDecode(data: AxiosResponse<any, any>): cheerio.Root {
  * @param stock Stock의 정보가 담겨있는 td Column의 Dom
  * @returns {StockCommonModel} Code, Name이 담겨있는 Object
  */
-function getStockCommonData(stock: cheerio.Cheerio): StockCommonModel {
+export function getStockCommonData(stock: cheerio.Cheerio): StockCommonModel {
   const stockName = stock.text();
   const stockCode = stock.children("a").attr()["href"].split("code=")[1];
   return {
@@ -33,7 +33,7 @@ function getStockCommonData(stock: cheerio.Cheerio): StockCommonModel {
 /**
  * 종목의 거래량이 천만 이하 인지 확인하여 boolean을 반환한다.
  */
-function isLeTenMillion(row: cheerio.Cheerio): boolean {
+export function isLeTenMillion(row: cheerio.Cheerio): boolean {
   const volumeStr = row.children("td:nth-child(6)").text();
   const volumeInt = Number(volumeStr.split(",").join(""));
   return volumeInt < 10_000_000;
@@ -42,7 +42,7 @@ function isLeTenMillion(row: cheerio.Cheerio): boolean {
 /**
  * 종목의 거래대금이 200억 이상인지 확인하여 boolean을 반환한다.
  */
-function isLeTwentyBillion(row: cheerio.Cheerio): boolean {
+export function isLeTwentyBillion(row: cheerio.Cheerio): boolean {
   const amountStr = row.children("td:nth-child(7)").text();
   const amountInt = Number(amountStr.split(",").join(""));
   return amountInt < 20_000;
@@ -51,7 +51,7 @@ function isLeTwentyBillion(row: cheerio.Cheerio): boolean {
 /**
  * ETF 종목인지 확인하기
  */
-function exceptETFnETN(name: string): boolean {
+export function exceptETFnETN(name: string): boolean {
   if (
     name.includes("선물") ||
     name.includes("ETN") ||
@@ -67,98 +67,35 @@ function exceptETFnETN(name: string): boolean {
 }
 
 /**
- * KOSPI, KOSDAQ의 상한가 종목을 반환한다.
+ * 상한가 종목은 거래량에서 제외한다.
  */
-export function parseUpperLimitList($: cheerio.Root) {
-  const UpperLimitList: StockItemModel[] = [];
-  const tableBody = $("#contentarea .box_type_l table tbody");
-
-  tableBody.each((tableIdx, el) => {
-    const rows = $(el).children();
-
-    for (let i = 2; i < rows.length - 2; i++) {
-      const stockItem = $(rows[i]).children("td:nth-child(4)");
-      const { code, name } = getStockCommonData(stockItem);
-      if (tableIdx === 0) {
-        UpperLimitList.push({
-          code,
-          name,
-          market: "KOSPI",
-          type: "UPPER",
-        });
-      }
-
-      if (tableIdx === 1) {
-        UpperLimitList.push({
-          code,
-          name,
-          market: "KOSDAQ",
-          type: "UPPER",
-        });
-      }
-    }
+export function exceptUpperLimitList(
+  upperLimitList: StockItemModel[],
+  volumeList: StockItemModel[]
+): StockItemModel[] {
+  const exceptList = volumeList.filter((volumeItem) => {
+    return !upperLimitList.some((upperLimitItem) => {
+      return upperLimitItem.code === volumeItem.code;
+    });
   });
 
-  return UpperLimitList;
+  return exceptList;
 }
 
 /**
- * KOSPI의 거래량 1000만 이상의 종목을 반환한다.
+ * 현재가가 1000원 이하인 동전주는 제외한다.
  */
-export function parseKospiVolumeList($: cheerio.Root) {
-  const kospiVolumeList: StockItemModel[] = [];
-  const tableBody = $("#contentarea .box_type_l table tbody");
-
-  tableBody.each((_, el) => {
-    const rows = $(el).children();
-
-    for (let i = 2; i < rows.length - 2; i++) {
-      const row = $(rows[i]);
-      if (row.children().length === 1) continue;
-      if (isLeTwentyBillion(row)) continue;
-      if (isLeTenMillion(row)) break;
-
-      const stockItem = row.children("td:nth-child(2)");
-      const { code, name } = getStockCommonData(stockItem);
-
-      if (exceptETFnETN(name)) continue;
-
-      kospiVolumeList.push({
-        code,
-        name,
-        market: "KOSPI",
-        type: "VOLUME",
-      });
-    }
-  });
-  return kospiVolumeList;
+export function isPriceLeOneK(row: cheerio.Cheerio): boolean {
+  const currentPriceStr = row.children("td:nth-child(3)").text();
+  const currentPriceInt = Number(currentPriceStr.split(",").join(""));
+  return currentPriceInt < 1_000;
 }
 
 /**
- * KOSDAQ의 거래량 1000만 이상의 종목을 반환한다.
+ * 시가 총액이 1,000억원을 넘지 않는 종목은 제외한다.
  */
-export function parseKosdaqVolumeList($: cheerio.Root) {
-  const kosdaqVolumeList: StockItemModel[] = [];
-  const tableBody = $("#contentarea .box_type_l table tbody");
-  tableBody.each((_, el) => {
-    const rows = $(el).children();
-
-    for (let i = 2; i < rows.length - 2; i++) {
-      const row = $(rows[i]);
-      if (row.children().length === 1) continue;
-      if (isLeTwentyBillion(row)) continue;
-      if (isLeTenMillion(row)) break;
-
-      const stockItem = row.children("td:nth-child(2)");
-      const { code, name } = getStockCommonData(stockItem);
-
-      kosdaqVolumeList.push({
-        code,
-        name,
-        market: "KOSDAQ",
-        type: "VOLUME",
-      });
-    }
-  });
-  return kosdaqVolumeList;
+export function isMarketCapLeTenB(row: cheerio.Cheerio): boolean {
+  const marketCapStr = row.children("td:nth-child(10)").text();
+  const marketCapInt = Number(marketCapStr.split(",").join(""));
+  return marketCapInt < 1_000;
 }

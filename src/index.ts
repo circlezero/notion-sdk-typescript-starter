@@ -7,12 +7,12 @@ import {
   getKospiVolumeList,
   getUpperLimitList,
 } from "./network";
+import { getHtmlDecode } from "./util";
 import {
-  getHtmlDecode,
   parseKosdaqVolumeList,
   parseKospiVolumeList,
   parseUpperLimitList,
-} from "./util";
+} from "./parse";
 
 dotenv.config();
 
